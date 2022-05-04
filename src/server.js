@@ -178,16 +178,22 @@ app.get('/firends/:friend_id/cars', authorize(['customer']), async (req, res)=> 
 // Login without SSO
 app.post('/login', async(req, res) => {
   try {
-    const customer = await Customer.getCustomerByEmail(req.body.email)
-    if (!customer.recordset.length) return res.status(200).send({ error: 'Customer does not exist' });
-    const pass = await bcrypt.compare(req.body.password, customer.recordset[0].Password)
-    if (!pass) return res.status(200).send({ error: 'Invalid Username or Password' });
-    const resPayload = {
-      email: customer.recordset[0].Email,
+    if(req.body.sso === false){
+      const customer = await Customer.getCustomerByEmail(req.body.email)
+      if (!customer.recordset.length) return res.status(200).send({ error: 'Customer does not exist' });
+      const pass = await bcrypt.compare(req.body.password, customer.recordset[0].Password)
+      if (!pass) return res.status(200).send({ error: 'Invalid Username or Password' });
+      const resPayload = {
+        email: customer.recordset[0].Email,
+      }
+      const token = generateToken(resPayload)
+      resPayload['token'] = token
+      return res.status(200).send(resPayload);
     }
-    const token = generateToken(resPayload)
-    resPayload['token'] = token
-    return res.status(200).send(resPayload);
+    else{
+      Customer.login(req, res)
+    }
+
   } catch (e) {
     return res.status(500).send({
       'error': e.message
@@ -199,11 +205,10 @@ app.post('/login', async(req, res) => {
 app.post('/signup', async (req, res) => {
   try {
     const body = req.body
-    let customer = await Customer.getCustomerByEmail(req.body.Email)
+    let customer = await Customer.getCustomerByEmail(req.body.email)
     if (customer.recordset.length) return res.status(200).send({ error: 'Email already in use!' });
-    body.Password = await bcrypt.hash(body.Password, 5)
+    body.password = await bcrypt.hash(body.password, 5)
     const customerNew = await Customer.saveCustomer(body)
-    console.log(customerNew)
     if (!customerNew.recordset.length) {
       return res.status(200).send({ error: 'Unable to save customer' });
     }
@@ -218,5 +223,3 @@ app.post('/signup', async (req, res) => {
 app.listen(PORT, function () {
   console.log('Server is running...');
 });
-
-// eco car 3.0 

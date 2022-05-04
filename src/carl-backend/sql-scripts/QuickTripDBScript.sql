@@ -76,7 +76,9 @@ CREATE TABLE QuickTripTables.tblCustomer
     FName VARCHAR(50),
     LName VARCHAR(50),
     Password VARCHAR(75),
-    DriversLicense VARCHAR(8)
+    DriversLicense VARCHAR(8),
+    MagicLink VARCHAR(150),
+    MagicLinkExpired Boolean(false)
 );
 GO
 
