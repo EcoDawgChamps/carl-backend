@@ -6,7 +6,7 @@ const transport = nodemailer.createTransport({
     pass: process.env.NODEMAILER_PASSWORD,
   }
 });
-const URL = 'http://localhost:4000/enter/'
+const URL = 'http://localhost:3000/enter/'
 
 const send_magic_link = async (email,link,which) => {
   if(which == 'signup'){

@@ -13,7 +13,6 @@ const { Car } = require("./entity/Car");
 const { generateToken } = require('./utils/jwt.utils');
 const { authorize } = require('./middlewares/auth.middleware')
 
-const PORT = process.env.PORT || 4000
 
 dbConnect()
 
@@ -220,6 +219,9 @@ app.post('/signup', async (req, res) => {
   }
 })
 
-app.listen(PORT, function () {
-  console.log('Server is running...');
-});
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log('Example app listening at http://localhost:PORT')
+})
+
+export default app;
