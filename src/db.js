@@ -1,9 +1,9 @@
 const sql = require('mssql')
 
 const config = {
-  user: 'sa',
-  password: 'Itsyalla@088',
-  server: 'localhost',
+  user: 'Capstone2022',
+  password: 'Graduation!',
+  server: 'IS-HAY08.iSchool.uw.edu',
   port: 1433,
   database: 'QuickTrip', //GET NEW DB NAME
   trustServerCertificate: true
