@@ -12,7 +12,9 @@ const { Customer } = require("./entity/Customer");
 const { Car } = require("./entity/Car");
 const { generateToken } = require('./utils/jwt.utils');
 const { authorize } = require('./middlewares/auth.middleware')
+const { Encrypter } = require("./utils/Encrypter")
 
+const PORT = process.env.PORT || 4000
 
 dbConnect()
 
@@ -174,25 +176,29 @@ app.get('/firends/:friend_id/cars', authorize(['customer']), async (req, res)=> 
   }
 })
 
-// Login without SSO
+// Login
 app.post('/login', async(req, res) => {
   try {
-    if(req.body.sso === false){
-      const customer = await Customer.getCustomerByEmail(req.body.email)
+    if(req.body.sso == "false"){
+      const customer = await Customer.getCustomerByEmail(req.body.email);
       if (!customer.recordset.length) return res.status(200).send({ error: 'Customer does not exist' });
-      const pass = await bcrypt.compare(req.body.password, customer.recordset[0].Password)
+      const pass = await bcrypt.compare(req.body.password, customer.recordset[0].Password);
       if (!pass) return res.status(200).send({ error: 'Invalid Username or Password' });
       const resPayload = {
         email: customer.recordset[0].Email,
       }
-      const token = generateToken(resPayload)
-      resPayload['token'] = token
+      const token = generateToken(resPayload);
+      resPayload['token'] = token;
       return res.status(200).send(resPayload);
     }
     else{
-      Customer.login(req, res)
+      let link = await Customer.generateSSOLink(req.body.email);
+      let payload = {
+        email: req.body.email,
+        link: link
+      }
+      Customer.sendMail(payload);
     }
-
   } catch (e) {
     return res.status(500).send({
       'error': e.message
@@ -219,8 +225,32 @@ app.post('/signup', async (req, res) => {
   }
 })
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log('Example app listening at http://localhost:PORT')
+app.get('/sso-login', async (req, res) => {
+  const email = decodeURIComponent(req.query.email)
+  const timestamp = decodeURIComponent(req.query.timestamp)
+
+  const encrypter = new Encrypter("secret");
+  const timestampNow = Date.now()
+
+  const dencryptedEmail = encrypter.dencrypt(email);
+  const dencryptedTimestamp = encrypter.dencrypt(timestamp);
+
+  if ((timestampNow - dencryptedTimestamp) < 3600000) { // less than one hour
+
+    const resPayload = { email: dencryptedEmail }
+    const token = generateToken(resPayload)
+    resPayload['token'] = token
+    return res.status(200).send(resPayload);
+
+  } else {
+    res.status(200).send({ error: 'Link expired' });
+  }
+
 })
+
+app.listen(PORT, function () {
+  console.log('Server is running...');
+});
+
+
 

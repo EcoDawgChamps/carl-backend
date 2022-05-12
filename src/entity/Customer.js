@@ -1,9 +1,7 @@
+const nodemailer = require('nodemailer');
 const sql = require("mssql");
-const jwt = require("jsonwebtoken");
-const validator = require("validator");
-const jwt_secret = process.env.JWT_SECRET;
-const { v4: uuidv4 } = require('uuid');
-const {send_magic_link} = require('../controllers/emails.js')
+const { Encrypter } = require("../utils/Encrypter")
+require('dotenv').config();
 
 
 class Customer {
@@ -19,61 +17,42 @@ class Customer {
     return customer;
   }
 
-  static async register(email) {
-    try {
-      const newCustomer = {
-        fName: "",
-        lName: "",
-        Email:email,
-        MagicLink: uuidv4(),
-        license: ""
-      };
-      let customer = await saveCustomer(newCustomer);
-      let sendEmail = send_magic_link(email, customer.MagicLink, 'signup')
-      return({ ok: true, message: "Customer created"});
-    }catch (error) {
-    return({ ok: false, error });
-    }
-  };
+  static async generateSSOLink (email) {
+    const encrypter = new Encrypter("secret");
+    const timestamp = Date.now();
+    const encryptedEmail = encodeURIComponent(encrypter.encrypt(email));
+    const encryptedStamp = encodeURIComponent(encrypter.encrypt(timestamp.toString()));
+    const link = `http://localhost:4000/sso-login?email=${encryptedEmail}&timestamp=${encryptedStamp}`
 
-  static async login(req, res) {
-    const { email, magicLink } = req.body;
-    if (!email)
-      return res.json({ ok: false, message: "All field are required" });
-    if (!validator.isEmail(email))
-      return res.json({ ok: false, message: "Invalid email" });
-    try {
-      const customer = await Customer.getCustomerByEmail(email);
-      if(!customer){
-        let reg = await register(email)
-        res.send({ok:true, message:'Your account has been created, click the link in email to sign in 👻'})
-      }else if(!magicLink){
-        try{
-          const customer = await sql.query(`UPDATE QuickTripTables.tblCustomer SET MagicLink='${uuidv4()}', MagicLinkExpired=${false} WHERE Email=${customer.Email})`)
-          send_magic_link(email, customer.MagicLink)
-          res.send({ok:true,message:'Hit the link in email to sign in'})
-        }catch{
-          res.send({ok:false,message:'Something bad happened🤔'})
-        }
-      }else if(customer.MagicLink == magicLink && !customer.MagicLinkExpired) {
-        const token = jwt.sign(customer.toJSON(), jwt_secret, { expiresIn: "365d" }); //{expiresIn:'365d'}
-        await sql.query(`UPDATE QuickTripTables.tblCustomer SET MagicLinkExpired=${true} WHERE Email=${customer.Email})`)
-        res.json({ ok: true, message: "Welcome back", token, email });
-      }else return res.json({ ok: false, message: "Magic link expired or incorrect 🤔" });
-    } catch (error) {
-      res.json({ ok: false, error });
-    }
-  };
+    return link;
+    // const dencrypted = encrypter.dencrypt(encrypted);
+    // console.log({ worked: clearText === dencrypted });
+  }
 
-  static async verify_token(req, res) {
-    console.log(req.headers.authorization);
-    const token = req.headers.authorization;
-    jwt.verify(token, jwt_secret, (err, succ) => {
-      err
-      ? res.json({ ok: false, message: "something went wrong" })
-      : res.json({ ok: true, succ });
+  static async sendMail(payload) {
+
+    let transporter = nodemailer.createTransport({
+      service: 'gmail',
+      host: 'smtp.gmail.com',
+      auth: {
+        user: process.env.NODEMAILER_EMAIL,
+        pass: process.env.NODEMAILER_PASSWORD,
+      }
     });
-  };
+
+    let info = await transporter.sendMail({
+      from: process.env.NODEMAILER_EMAIL, // sender address
+      to: `${payload.email}`, // list of receivers
+      subject: "Login to your app", // Subject line
+      html: `
+       <b>Click below link to get login to your app</b><br><br>
+       <b>Link:</b> ${payload.link}
+      `,
+    });
+
+    console.log("Message sent: %s", info.messageId);
+    console.log("Preview URL: %s", nodemailer.getTestMessageUrl(info));
+  }
 }
 
 exports.Customer = Customer
